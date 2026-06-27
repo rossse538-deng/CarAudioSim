@@ -1,29 +1,76 @@
-# Tweeter Waveguide Designer - 车载高音波导生成器
+# Car Tweeter Waveguide Designer & Acoustic Simulator (V46)
 
-## 项目简介 (Project Introduction)
-这是一个基于声学物理模型开发的辅助设计工具，旨在为车载高音单元生成专属的声波导（Waveguide/Horn）面板。
-本软件利用多模态AI大模型辅助编程，帮助用户通过 3D 打印技术，实现对高音单元指向性（Directivity）和声阻抗（Acoustic Impedance）的物理控制。
+车载高音单元波导设计与驾驶舱声学仿真分析工具（V46 版本）是一个基于 WebGL/Three.js 开发的轻量级、交互式工程辅助程序。该程序旨在帮助音响改装工程师与声学设计人员在浏览器端完成高音波导（Waveguide）的参数化外形设计、喉口衍射评估，并在虚拟驾驶舱环境中进行多路径早期反射（Early Reflections）与分频器联动衰减模拟。
 
-This tool generates acoustic waveguide profiles for car audio tweeters to optimize directivity and minimize room reflections.
+---
 
-## 开发背景与声学发现 (Background & Acoustic Insights)
-在复杂的车内声学环境中，高音单元的安装位置至关重要。
-我们在开发过程中对比了传统的 **“A柱8字倒模” (Figure-8 Molding)** 与 **“波导面板” (Waveguide)** 的实测数据，发现了以下显著差异：
+## 🚀 在线立即使用 (GitHub Pages)
 
-1.  **传统倒模的物理局限**：
-    *   当高音单元紧贴挡风玻璃安装（常见于8字倒模）时，3kHz-6kHz 频段极易因反射声与直达声的相位干涉，产生 **梳状滤波 (Comb Filtering)**，导致中高频听感不实。
-    *   10kHz 以上频段容易受到挡风玻璃的 **号角效应 (Horn Loading)** 影响，产生非线性的能量增益。
+本项目已启用 GitHub Pages 静态托管，您无需在本地搭建任何开发环境，只需点击下方链接即可在浏览器中直接运行与设计：
 
-2.  **波导技术的优势**：
-    *   本软件设计的波导面板，能够主动控制高频声波的辐射角度。
-    *   通过收窄指向性，减少射向玻璃的能量，从而在源头上减轻反射干扰，获得更平滑的频响和更精准的相位。
+👉 **[点击此处在线运行程序](https://rossse538-deng.github.io/CarAudioSim/)**  
+*(提示：请在发布后将上述链接修改为您真实的 GitHub Pages 地址)*
 
-## 核心功能 (Key Features)
-*   **参数化建模**：输入高音单元振膜尺寸，自动生成优化的波导曲率（Profile）。
-*   **声学优化**：改善分频点附近的声阻抗匹配，提升中低端灵敏度。
-*   **3D打印就绪**：生成的模型导出后可直接用于 SLA/FDM 3D 打印，适配A柱或高音杯安装。
+> **本地运行提示**：如果您下载了本项目并在本地硬盘直接双击运行 `index.html`，可能会由于现代浏览器的安全策略（CORS 跨域限制）导致无法加载 3D 汽车模型或外部 JS 库。推荐在项目根目录下通过终端命令建立本地临时服务器：
+> ```bash
+> # 使用 Python 3 快速建立本地 Web 服务
+> python -m http.server 8000
+> ```
+> 然后在浏览器中输入 `http://localhost:8000` 即可正常访问。
 
-## 适用人群
-*   汽车音响发烧友 (Car Audio Enthusiasts)
-*   专业改装技师 (Professional Installers)
-*   声学DIY爱好者 (Acoustic DIYers)
+---
+
+## 核心功能模块
+
+### 1. 2D 参数化波导形体设计 (Modified OS Profile)
+* **几何拓扑调节**：支持喉口直径 ($D_{\text{Throat}}$)、开口直径 ($D_{\text{Mouth}}$) 及深度 ($Depth$) 线性微调，实时驱动 2D 剖面曲线重绘。
+* **Bezier 滚边边界修正**：基于 Geddes 扁球体坐标系变换（Oblate Spheroidal）的基础曲线模型，在喉口及开口处引入三阶贝塞尔曲线平滑过渡，辅助控制高频边缘衍射风险。
+* **皮革包覆厚度补偿 (Offset)**：内置物理蒙皮偏移参数，在生成打印件曲线时自动向外偏移指定厚度，以便后续手工包覆皮料后，内壁腔体尺寸仍符合设计预期。
+
+### 2. 3D 驾驶舱早期反射追迹 (Ray-Tracing & BVH)
+* **实时射线发射模拟**：在浏览器端利用 `three-mesh-bvh` 加速结构，实时进行高吞吐量（基于斐波那契球面均匀分布）的射线追迹计算。
+* **二次反射及听音区能量预测**：模拟声波经由挡风玻璃、A柱及仪表台面一次反射至目标听音区（Sweet Spot）的传播路径。
+* **多维声场分析看板**：结合直达声遮挡判断、分频滤波器衰减、表面介质吸音率，综合评估第一陷波频点（Null Frequency）及反射干扰系数。
+
+### 3. DSP 模拟分频网络 (Crossover Emulation)
+* **三种主流滤波响应**：集成 Butterworth（最平坦通带）、Linkwitz-Riley（车载经典分频）及 Bessel（最优群延迟相位）高通滤波器数学模型。
+* **斜率选择机制**：支持 1 阶（6 dB/oct）至 4 阶（24 dB/oct）斜率选择，其衰减值直接与 3D 仿真光锥的视觉亮度、离轴羽化边界以及能量积分运算保持实时同步。
+
+### 4. 频率相关材质吸收模型
+* **材料阻尼特性模拟**：预设原车硬塑料、皮革包覆、常规织物及 Alcantara 翻毛皮四种常用材质的声学吸收参数。
+* **动态插值衰减**：在 100 Hz 至 20 kHz 频带内对材质吸音率进行动态插值计算，评估不同包覆材质对消除早期声散射音染的作用。
+
+---
+
+## 📐 物理与数学公式基础
+
+本程序在计算与评估过程中参考了以下基础物理方程：
+
+### 1. 波导扩张截面方程 (OS Profile)
+
+$$S(x)=S_0\cdot(1+m\cdot x)^2$$
+
+*其中 $S_0$ 为喉口面积，$m$ 为扩张系数，$x$ 为沿轴向传播距离。*
+
+### 2. 滤波器幅度衰减函数
+
+* **Butterworth 高通滤波器响应**：
+
+$$A_{\text{Butter}}(f)=\frac{1}{\sqrt{1+\left(\frac{f_c}{f}\right)^{2N}}}$$
+
+* **Linkwitz-Riley 高通级联响应**：
+
+$$A_{\text{LR}}(f)=\left[\frac{1}{\sqrt{1+\left(\frac{f_c}{f}\right)^{N}}}\right]^2$$
+
+*(其中 $N$ 为偶数阶数，如 $N=2$ 代表 12dB/oct，$N=4$ 代表 24dB/oct)*
+
+---
+
+## 💻 CAD (Rhino) 协同工作流
+
+为提升与工程制图软件的对接效率，程序内置了指令级协同功能：
+
+1. **二维曲线参数化还原**：
+   在底端输出面板中，程序会自动根据蒙皮偏移值计算出 4 个关键贝塞尔控制点（$P_0, P_1, P_2, P_3$）的精确三维坐标，并提供一键生成 Rhino 曲线的代码指令：
+   ```text
+   ! _Curve _Degree=3 (x0,0,z0) (x1,0,z1) (x2,0,z2) (x3,0,z3) _Enter
