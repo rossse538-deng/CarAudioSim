@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>车载高音波导设计 V44 (含裸高音对比)</title>
+    <title>车载高音单元波导设计 V46</title>
     
     <!-- Three.js 依赖 -->
     <script type="importmap">
@@ -55,6 +55,9 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; transition: transform 0.1s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         
+        select { width: 100%; background: #333; color: #fff; border: 1px solid #555; padding: 6px; border-radius: 4px; font-size: 12px; outline: none; transition: border-color 0.2s; }
+        select:focus { border-color: var(--accent); }
+
         .desc { font-size: 11px; color: #888; line-height: 1.4; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px; margin-top: 4px; border-left: 2px solid #555; }
 
         #i-simFreq::-webkit-slider-thumb { background: var(--beam); box-shadow: 0 0 8px var(--beam); }
@@ -205,20 +208,22 @@
 <body>
 
 <header>
-    <h1>车载高音单元波导设计 V44 (融合车内环境仿真)</h1>
+    <h1>车载高音单元波导设计 V46</h1>
     <div class="algo-badge">
-        ℹ️ 核心算法: Modified OS Profile with Roll-off
+        ℹ️ 核心算法: Modified OS Profile with Roll-off & Crossover Filter Simulator
         <div class="tooltip">
-            <strong>🚀 核心声学方程 (Acoustic Governing Eq)</strong><br>
+            <strong>🚀 核心声学与滤波方程 (Acoustic Governing & Filter Eq)</strong><br>
             <div style="margin:8px 0; font-family:serif; font-style:italic; border-bottom:1px solid #555; padding-bottom:8px">
                 S(x) = S₀ · (1 + m·x)² <br>
-                y(x) = √[ (r₀ + x·tan(α))² + k·R(x) ]
+                A_Butter(f) = 1 / √[1 + (f_c/f)^(2N)] <br>
+                A_LR(f) = [1 / √[1 + (f_c/f)^N]]² (Even Orders)
             </div>
             <strong>🧮 算法拓扑 (Topology):</strong><br>
             • <strong>OS-SE Waveguide:</strong> 基于 Geddes 扁球体坐标变换，引入 3阶 Bezier 曲线修正喉口衍射。<br>
-            • <strong>Ray-Tracing:</strong> 采用 Fibonacci Lattice 均匀光球采样 (N=2000)，基于 BRDF 材质模型的声能传递函数。<br>
+            • <strong>Crossover Emulation:</strong> 实时仿真 Butterworth / Linkwitz-Riley / Bessel 三种滤波器斜率在所选模拟频率下的阻带衰减。<br>
+            • <strong>Dynamic Ray-Reflectivity:</strong> A柱及仪表台面吸音率基于频段特性动态插值，评估真实反射危害。<br>
             <br>
-            <em style="font-size:10px; color:#aaa">通过求解 Helmholtz 方程边界条件，实现恒定指向性控制 (CD) 与车内声场重建。</em>
+            <em style="font-size:10px; color:#aaa">通过求解 Helmholtz 方程边界条件与分频传输函数，高保真还原车内声场。</em>
         </div>
     </div>
 </header>
@@ -269,12 +274,65 @@
             </div>
         </div>
 
+        <!-- 3. 物理仿真与频率控制 -->
         <div class="panel" style="border-color:var(--beam)">
-            <div class="panel-h" style="color:var(--beam)">3. 物理仿真</div>
+            <div class="panel-h" style="color:var(--beam)">3. 物理仿真与测试</div>
             <div class="row">
-                <div class="row-head"><span>模拟频率</span><span class="val" style="color:var(--beam)" id="v-simFreq">4000 Hz</span></div>
+                <div class="row-head"><span>模拟频率 (Test Freq)</span><span class="val" style="color:var(--beam)" id="v-simFreq">4000 Hz</span></div>
                 <input type="range" id="i-simFreq" min="1000" max="20000" step="100" value="4000">
-                <div class="desc" id="txt-beam">频率越高，光束越窄。该数值将实时驱动右侧 3D 仿真。</div>
+                <div class="desc" id="txt-beam">频率越高，光束越窄。分频器将在分频点以下对模拟声压产生衰减。</div>
+            </div>
+        </div>
+
+        <!-- 4. 高通分频器 -->
+        <div class="panel" style="border-color:#f1c40f">
+            <div class="panel-h" style="color:#f1c40f">4. 声学高通分频器 (HPF)</div>
+            <div class="row">
+                <div class="row-head"><span>分频频率 (f_c)</span><span class="val" style="color:#f1c40f" id="v-fc">2500 Hz</span></div>
+                <input type="range" id="i-fc" min="1000" max="8000" step="50" value="2500">
+                <div class="desc">高通分频点。低于此分频点的信号能量将按照特定斜率逐渐衰减。</div>
+            </div>
+            <div class="row">
+                <div class="row-head"><span>分频斜率 (Slope)</span></div>
+                <select id="i-slope">
+                    <option value="6">6 dB/oct (1阶)</option>
+                    <option value="12">12 dB/oct (2阶)</option>
+                    <option value="18">18 dB/oct (3阶)</option>
+                    <option value="24" selected>24 dB/oct (4阶)</option>
+                </select>
+                <div class="desc">斜率越大，分频点下方的截止衰减越猛烈。</div>
+            </div>
+            <div class="row" style="margin-bottom:0;">
+                <div class="row-head"><span>分频滤波类型</span></div>
+                <select id="i-filterType">
+                    <option value="linkwitz-riley" selected>Linkwitz-Riley (车载经典)</option>
+                    <option value="butterworth">Butterworth (最平坦通带)</option>
+                    <option value="bessel">Bessel (最优群延时相位)</option>
+                </select>
+                <div class="desc">模拟车载DSP常用分频网络。不同类型对阻带过渡区边缘羽化模拟产生联动影响。</div>
+            </div>
+        </div>
+
+        <!-- 5. 倒模包覆表面声学吸音属性控制 -->
+        <div class="panel" style="border-color:#27ae60">
+            <div class="panel-h" style="color:#27ae60">5. 表面包覆材质 (吸音率)</div>
+            <div class="row">
+                <div class="row-head"><span>A柱倒模表面包覆</span></div>
+                <select id="i-apillarWrap">
+                    <option value="plastic">硬质塑料 (原车无包覆 - 反射强)</option>
+                    <option value="leather">真皮 / 仿皮包覆 (反射中等)</option>
+                    <option value="fabric">织物 / 布艺包覆 (高频轻微吸收)</option>
+                    <option value="alcantara" selected>Alcantara / 翻毛皮 (高频强吸收)</option>
+                </select>
+            </div>
+            <div class="row" style="margin-bottom:0;">
+                <div class="row-head"><span>仪表台面材质表面</span></div>
+                <select id="i-dashMaterial">
+                    <option value="plastic">原车塑料硬面 (高反射)</option>
+                    <option value="leather" selected>皮质包裹 (常规反射)</option>
+                    <option value="alcantara">Alcantara 避光垫/包裹 (吸收反射)</option>
+                </select>
+                <div class="desc">在实际倒模设计中，更换不同的包覆材料会显著改变中高频区域 of 声能二次反射。</div>
             </div>
         </div>
     </div>
@@ -328,10 +386,9 @@
                             <div style="width:8px; height:8px; background:#ff9900; border-radius:50%; margin-right:10px;"></div>
                             <span style="font-weight:bold; color:#ccc">ACOUSTIC SIM</span>
                             <span style="color:#ff0000; font-weight:bold; margin-left:8px;">V13.5</span>
-                            <span class="version-tag">Code B Core</span>
+                            <span class="version-tag">V46 Core</span>
                         </div>
                         <div class="header-btns">
-                            <!-- 新增对比按钮 -->
                             <div class="btn-tool" id="btn-bypass-toggle" title="忽略波导，模拟裸高音单元的物理指向性">
                                 <span style="margin-right:5px">⚖️</span> 对比裸高音
                             </div>
@@ -360,6 +417,12 @@
                                 <div class="metric-bar-bg"><div class="metric-bar-fill" id="bar-refl" style="width: 0%;"></div></div>
                                 <div class="metric-val" id="val-refl">--</div>
                             </div>
+                            <!-- 分频衰减指示器 -->
+                            <div class="metric-row">
+                                <div class="metric-label">分频衰减 (HPF)</div>
+                                <div class="metric-bar-bg"><div class="metric-bar-fill" id="bar-atten" style="width: 100%;"></div></div>
+                                <div class="metric-val" id="val-atten">0.0 dB</div>
+                            </div>
                             <div class="metric-row">
                                 <div class="metric-label">第一陷波频率</div>
                                 <div style="flex:1; text-align:left; color:#666; font-size:11px; margin-right:10px;">(Null Frequency)</div>
@@ -368,7 +431,7 @@
                         </div>
                         <div class="advice-section">
                             <div class="advice-title"><span style="width:6px; height:6px; background:#ff9900; border-radius:50%; margin-right:6px;"></span>AI DIAGNOSIS</div>
-                            <div class="advice-content" id="advice-text">算法已就绪。<br>光锥角度由左侧面板控制。</div>
+                            <div class="advice-content" id="advice-text">算法已就绪。<br>光锥角度及能量衰减受左侧分频面板联动。</div>
                         </div>
                     </div>
 
@@ -412,16 +475,6 @@
                                 <span class="val-text" id="tilt-val">--</span>
                             </div>
                         </div>
-                        
-                        <!-- 隐藏的控制行，由外部驱动 -->
-                        <div class="panel-section" style="opacity:0.5; pointer-events:none; display:none;">
-                            <div class="sec-title">物理属性 (External)</div>
-                            <div class="control-row">
-                                <label>扩散角</label>
-                                <input type="range" class="b-range" min="15" max="180" id="disp-slider">
-                                <span class="val-text" id="disp-val">--</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 
@@ -461,7 +514,20 @@
 <!-- ================= SCRIPT A (Logic & UI) ================= -->
 <script>
     // === STATE A ===
-    const s = { throat:34, mouth:90, skin:1.2, depth:16, angle:35, twExit:0, simFreq:4000 };
+    const s = { 
+        throat: 34, 
+        mouth: 90, 
+        skin: 1.2, 
+        depth: 16, 
+        angle: 35, 
+        twExit: 0, 
+        simFreq: 4000,
+        fc: 2500,                    // 默认高通分频点 2500Hz
+        slope: 24,                   // 默认斜率 24dB/oct
+        filterType: 'linkwitz-riley', // 默认分频网络 Linkwitz-Riley
+        apillarWrap: 'alcantara',    // 默认A柱包覆材质
+        dashMaterial: 'leather'       // 默认仪表台面包覆材质
+    };
     let activeTab = '2d';
     let SCALE = 5; 
 
@@ -472,9 +538,19 @@
 
     // === INIT A ===
     function initA() {
-        ['throat','mouth','skin','depth','angle','twExit','simFreq'].forEach(id => {
+        // 绑定 Range 输入框
+        ['throat','mouth','skin','depth','angle','twExit','simFreq', 'fc'].forEach(id => {
             document.getElementById('i-'+id).addEventListener('input', e => {
                 s[id] = parseFloat(e.target.value);
+                updateUI();
+                calcPhysics();
+            });
+        });
+
+        // 绑定 Select 下拉选项
+        ['slope', 'filterType', 'apillarWrap', 'dashMaterial'].forEach(id => {
+            document.getElementById('i-'+id).addEventListener('change', e => {
+                s[id] = id === 'slope' ? parseInt(e.target.value) : e.target.value;
                 updateUI();
                 calcPhysics();
             });
@@ -499,6 +575,7 @@
         document.getElementById('v-angle').innerText = s.angle + '°';
         document.getElementById('v-twExit').innerText = s.twExit + '°';
         document.getElementById('v-simFreq').innerText = s.simFreq + ' Hz';
+        document.getElementById('v-fc').innerText = s.fc + ' Hz';
     }
 
     window.setTab = (mode) => {
@@ -560,15 +637,11 @@
             document.getElementById('txt-beam').innerText = "波导受控 | 指向性稳定";
         }
         
-        // === BARE TWEETER CALCULATION (NEW) ===
-        // Approximate piston directivity: ka = pi * D / lambda
-        // wavelength (mm)
+        // === BARE TWEETER CALCULATION ===
         const lambda = 343000 / s.simFreq; 
         const ka = (Math.PI * s.throat) / lambda;
         let bareAngle = 170; // Default wide
         if (ka > 0.5) {
-            // Rough approximation of a piston beaming
-            // ka=1 -> ~100 deg, ka=3 -> ~40 deg
             bareAngle = Math.max(25, 170 / (1 + Math.pow(ka, 1.8) * 0.4));
         }
 
@@ -581,9 +654,11 @@
         document.getElementById('r-beam').innerText = window.currentBeamAngle.toFixed(0) + '°';
 
         // *** BRIDGE TO CODE B ***
-        // Send both angles to the 3D engine to handle toggling
         if(window.update3DModeData) {
             window.update3DModeData(window.currentBeamAngle, window.currentBareAngle);
+        }
+        if(window.update3DSimState) {
+            window.update3DSimState();
         }
 
         const cardDiff = document.getElementById('c-diff');
@@ -706,8 +781,8 @@ _Enter`;
     function updateMats() {
         const r = s.depth/s.mouth;
         document.getElementById('mat-list').innerHTML = `
-            <div class="m-item rec"><div style="margin-right:5px">👍</div><div><strong>Alcantara (翻毛皮)</strong><br>最佳推荐。吸收杂散反射。</div></div>
-            <div class="m-item ${r>0.25?'bad':'rec'}"><div style="margin-right:5px">${r>0.25?'⚠️':'👌'}</div><div><strong>真皮 / 仿皮</strong><br>${r>0.25?'波导过深，光面皮料将导致严重音染。':'波导平缓，影响较小。'}</div></div>
+            <div class="m-item rec"><div style="margin-right:5px">👍</div><div><strong>Alcantara (翻毛皮)</strong><br>高频吸收率最佳。可有效遏制波导内壁与A柱周边的二次散射。</div></div>
+            <div class="m-item ${r>0.25?'bad':'rec'}"><div style="margin-right:5px">${r>0.25?'⚠️':'👌'}</div><div><strong>真皮 / 仿皮</strong><br>${r>0.25?'波导过深，光面皮料反射率在极高频上升，容易导致轻微音染。':'波导角度平缓，声波掠射时皮料吸收效果尚可。'}</div></div>
         `;
     }
     updateMats();
@@ -749,15 +824,84 @@ _Enter`;
 
     // === TOGGLE LOGIC VARIABLES ===
     let isBareMode = false;
-    let cachedWgAngle = 60;   // 波导角度
-    let cachedBareAngle = 170; // 裸高音角度
+    let cachedWgAngle = 60;   
+    let cachedBareAngle = 170; 
 
     const matBody = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, metalness: 0.1, side: THREE.DoubleSide });
     const matGlass = new THREE.MeshPhysicalMaterial({ color: 0xaaccff, transmission: 0.9, opacity: 0.2, roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide, transparent: true, depthWrite: false });
     const matGhost = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.15, wireframe: true, depthWrite: false, side: THREE.DoubleSide });
     const matZone = new THREE.MeshBasicMaterial({ color: 0x22ff22, transparent: true, opacity: 0.4 });
 
-    // The Bridge: State driven by external input
+    // 材质可视属性映射
+    const materialCache = {
+        plastic: new THREE.MeshStandardMaterial({ color: 0x2d2d30, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide }),
+        leather: new THREE.MeshStandardMaterial({ color: 0x1f1f1f, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide }),
+        fabric: new THREE.MeshStandardMaterial({ color: 0x414247, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide }),
+        alcantara: new THREE.MeshStandardMaterial({ color: 0x2e3033, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide })
+    };
+
+    function getWrapperMaterial(wrapType) {
+        return materialCache[wrapType] || materialCache.plastic;
+    }
+
+    // === 频响相关声学计算 (分频器 & 材质吸音率) ===
+
+    // 1. 高通滤波器传输函数幅频特性计算
+    function getFilterAttenuation(f, fc, type, slope) {
+        const x = f / fc;
+        if (x <= 0) return 0;
+        let n = 1; // 阶数
+        if (slope === 12) n = 2;
+        else if (slope === 18) n = 3;
+        else if (slope === 24) n = 4;
+
+        if (type === 'butterworth') {
+            return 1 / Math.sqrt(1 + Math.pow(fc / f, 2 * n));
+        } else if (type === 'linkwitz-riley') {
+            if (slope === 6 || slope === 18) {
+                return 1 / Math.sqrt(1 + Math.pow(fc / f, 2 * n));
+            }
+            const bOrder = n / 2;
+            const bAtt = 1 / Math.sqrt(1 + Math.pow(fc / f, 2 * bOrder));
+            return bAtt * bAtt; // 级联平方
+        } else if (type === 'bessel') {
+            if (n === 1) {
+                return x / Math.sqrt(x * x + 1);
+            } else if (n === 2) {
+                return (x * x) / Math.sqrt(Math.pow(x, 4) + 3 * x * x + 3);
+            } else if (n === 3) {
+                return Math.pow(x, 3) / Math.sqrt(Math.pow(x, 6) + 6 * Math.pow(x, 4) + 15 * x * x + 15);
+            } else if (n === 4) {
+                return Math.pow(x, 4) / Math.sqrt(Math.pow(x, 8) + 10 * Math.pow(x, 6) + 45 * Math.pow(x, 4) + 105 * x * x + 105);
+            }
+        }
+        return 1;
+    }
+
+    // 2. 频率相关材质声能吸收/反射率插值函数
+    function getReflectivity(material, freq) {
+        const f = Math.max(100, Math.min(20000, freq));
+        let alpha = 0.05;
+        if (material === 'glass') {
+            alpha = 0.03; 
+        } else if (material === 'plastic') {
+            alpha = 0.04 + (f / 20000) * 0.08; 
+        } else if (material === 'leather') {
+            if (f < 1000) alpha = 0.08;
+            else if (f < 4000) alpha = 0.08 + ((f - 1000) / 3000) * 0.10;
+            else alpha = 0.18 + ((f - 4000) / 16000) * 0.12;
+        } else if (material === 'fabric') {
+            if (f < 1000) alpha = 0.12;
+            else if (f < 4000) alpha = 0.12 + ((f - 1000) / 3000) * 0.23;
+            else alpha = 0.35 + ((f - 4000) / 16000) * 0.25;
+        } else if (material === 'alcantara') {
+            if (f < 1000) alpha = 0.15;
+            else if (f < 4000) alpha = 0.15 + ((f - 1000) / 3000) * 0.40;
+            else alpha = 0.55 + ((f - 4000) / 16000) * 0.25;
+        }
+        return Math.max(0.05, Math.min(0.98, 1 - alpha)); 
+    }
+
     const state = {
         pan: CONFIG.initOri.pan, 
         tilt: CONFIG.initOri.tilt, 
@@ -778,27 +922,19 @@ _Enter`;
         }
     }
 
-    // --- UPDATED Bridge Function ---
-    // Receives both the Waveguide Angle and the Bare Tweeter Angle
+    // === UPDATED Bridge Function ===
     window.update3DModeData = (wgDeg, bareDeg) => {
         cachedWgAngle = wgDeg;
         cachedBareAngle = bareDeg;
         applyCurrentMode();
     };
 
+    window.update3DSimState = () => {
+        updateSimulation();
+    };
+
     function applyCurrentMode() {
-        // Toggle Angle
         state.angle = isBareMode ? cachedBareAngle : cachedWgAngle;
-        
-        // Toggle Visual Style (Blue for WG, White/Grey for Bare)
-        if(soundCone) {
-            const mat = soundCone.material;
-            // Re-create texture or just simple color tint
-            // Simple approach: modify opacity/color slightly if needed, 
-            // but the main visual cue is the spread.
-            // Let's make Bare mode look "whiter" to differentiate.
-        }
-        
         updateTweeterTransform();
         updateUIFeedback();
     }
@@ -811,14 +947,9 @@ _Enter`;
             btn.classList.add('btn-active-white');
             btn.innerHTML = "<span style='margin-right:5px'>⚠️</span> 裸高音模式 (ON)";
             advice.innerHTML = `<span style="color:#fff; font-weight:bold">对比模式：裸高音</span><br>角度随频率变化 (物理特性)。<br>当前扩散角: ${cachedBareAngle.toFixed(0)}°`;
-            // Change cone color to white-ish
-            if(soundCone) soundCone.material.color.setHex(0xffffff);
         } else {
             btn.classList.remove('btn-active-white');
             btn.innerHTML = "<span style='margin-right:5px'>⚖️</span> 对比裸高音";
-            if(soundCone) soundCone.material.color.setHex(0xffffff); // Default is driven by texture map which is blue-ish
-            // Reset advice to normal is handled by calcPhysics logic usually, but let's reset generic
-            // advice.innerHTML = "算法已就绪。<br>光锥角度由左侧面板控制。";
         }
     }
 
@@ -845,8 +976,6 @@ _Enter`;
         'btn-pan-dec': ()=>window.adj('pan', -1), 'btn-pan-inc': ()=>window.adj('pan', 1),
         'btn-tilt-dec': ()=>window.adj('tilt', -0.5), 'btn-tilt-inc': ()=>window.adj('tilt', 0.5),
         'btn-fit-cam': ()=>fitCamera(), 'btn-export-3d': ()=>exportToRhino3D(),
-        
-        // Toggle Button
         'btn-bypass-toggle': () => {
             isBareMode = !isBareMode;
             applyCurrentMode();
@@ -978,6 +1107,8 @@ _Enter`;
 
     function createDummyEnvironment() {
         const dummyRoot = new THREE.Group();
+        const pillarLeft = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.1), matBody);
+        pillarLeft.position.set(-0.5, 1.2, 0.5); pillarLeft.rotation.z = 0.2; pillarLeft.name = "dummy_pillar_left"; dummyRoot.add(pillarLeft);
         const dash = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.8), matBody);
         dash.position.set(0, 0.8, 0.9); dash.name = "dummy_dash"; dummyRoot.add(dash);
         const glassFront = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), matGlass);
@@ -1012,18 +1143,31 @@ _Enter`;
         root.traverse(c => {
             if(c.isMesh) {
                 const n = c.name.toLowerCase();
+                let matType = 'plastic';
+                
                 if(n.includes('glass') || n.includes('window') || n.includes('boli')) {
                     c.material = matGlass;
-                    c.userData.acoustics = { reflectivity: 0.92, type: 'glass' };
+                    matType = 'glass';
+                    environmentObjects.push(c);
+                } else if(n.includes('pillar') || n.includes('a柱') || n.includes('trim')) {
+                    c.material = getWrapperMaterial(s.apillarWrap);
+                    matType = 'apillar';
+                    environmentObjects.push(c);
+                } else if(n.includes('dash') || n.includes('yibiaotai') || n.includes('board')) {
+                    c.material = getWrapperMaterial(s.dashMaterial);
+                    matType = 'dash';
                     environmentObjects.push(c);
                 } else if(n.includes('head') || n.includes('ear') || n.includes('listener')) {
                     c.material = matGhost;
                     c.visible = true; 
+                    matType = 'listener';
                 } else if (!n.includes('dummy')) { 
                     c.material = matBody;
-                    c.userData.acoustics = { reflectivity: 0.55, type: 'body' };
+                    matType = 'plastic';
                     environmentObjects.push(c);
                 }
+                
+                c.userData.acoustics = { materialType: matType };
                 if(c.geometry) c.geometry.computeBoundsTree();
             }
         });
@@ -1057,13 +1201,78 @@ _Enter`;
         tweeterMesh.add(casing);
         const dome = new THREE.Mesh(new THREE.SphereGeometry(0.022, 32, 16, 0, Math.PI*2, 0, Math.PI/2).rotateX(Math.PI/2), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }));
         tweeterMesh.add(dome);
+
+        // === V46 GPU 级重构：原生 Y 轴向上圆锥几何体（杜绝顶点预旋转导致的轴向失真） ===
         const coneGeo = new THREE.CylinderGeometry(1, 0.001, 1, 32, 1, true);
-        coneGeo.translate(0, 0.5, 0); coneGeo.rotateX(Math.PI/2); 
-        const canvas = document.createElement('canvas'); canvas.width=64; canvas.height=64;
-        const ctx = canvas.getContext('2d');
-        const g = ctx.createLinearGradient(0,0,0,64); g.addColorStop(0,'rgba(0,220,255,0)'); g.addColorStop(1,'rgba(0,220,255,0.15)');
-        ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
-        soundCone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+        coneGeo.translate(0, 0.5, 0); // 仅做平移，使 apex 完美位于 (0,0,0) 并朝正 Y 方向延伸
+
+        // 绝对安全的 WebGL 1.0 加性混合体积光材质，解决 RTX 显卡上的 NaN 斩断缺陷
+        const coneShaderMaterial = new THREE.ShaderMaterial({
+            vertexShader: `
+                varying vec3 vNormal;
+                varying vec3 vViewDir;
+                varying float vRadial;
+                varying float vDepth;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    vViewDir = -mvPosition.xyz;
+                    vDepth = position.y; // 原生坐标系下 Y 轴代表传播深度方向
+                    
+                    // 局部 XZ 轴代表径向切面
+                    float r = length(position.xz);
+                    vRadial = position.y > 0.001 ? r / position.y : 0.0;
+                    vRadial = clamp(vRadial, 0.0, 1.0);
+                    
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 uColor;
+                uniform float uAttenuation;
+                uniform float uExponent;
+                varying vec3 vNormal;
+                varying vec3 vViewDir;
+                varying float vRadial;
+                varying float vDepth;
+                void main() {
+                    // 声能在轴向传播时的自然距离衰减
+                    float depthFade = 1.0 - smoothstep(0.0, 1.0, vDepth);
+                    
+                    // 声学离轴衰减（严格限定 edge0 < edge1，杜绝 NVIDIA 编译器未定义崩溃）
+                    float radialDecay = 1.0 - smoothstep(0.0, 1.0, vRadial);
+                    
+                    // 基于滤波器特性的幂次指数衰减计算
+                    float intensity = pow(radialDecay, uExponent);
+                    
+                    // 边缘渐变羽化（确保在圆锥外壁边缘柔和过渡到 0）
+                    float boundaryFade = 1.0 - smoothstep(0.85, 1.0, vRadial);
+                    
+                    // 三维相机视向羽化（消除纸片穿帮，保障全视角圆润视觉）
+                    vec3 normal = normalize(vNormal);
+                    vec3 viewDir = normalize(vViewDir);
+                    float rim = abs(dot(normal, viewDir));
+                    
+                    float alpha = intensity * boundaryFade * depthFade * mix(0.15, 1.0, rim) * uAttenuation;
+                    gl_FragColor = vec4(uColor, alpha);
+                }
+            `,
+            uniforms: {
+                uColor: { value: new THREE.Color(0x00e5ff) },
+                uAttenuation: { value: 1.0 },
+                uExponent: { value: 2.0 }
+            },
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide
+        });
+
+        soundCone = new THREE.Mesh(coneGeo, coneShaderMaterial);
+        
+        // 关键物理对齐：在网格层级进行旋转，使原生的 Y 轴指向高音单元的射出方向（Z轴）
+        soundCone.rotation.x = Math.PI / 2;
+        
         tweeterMesh.add(soundCone);
     }
 
@@ -1073,8 +1282,40 @@ _Enter`;
         tweeterMesh.rotation.y = THREE.MathUtils.degToRad(state.pan);
         tweeterMesh.rotation.x = THREE.MathUtils.degToRad(-state.tilt);
         
+        // 动态计算该频点在物理边界处的扩散半径
         const r = state.distance * Math.tan(THREE.MathUtils.degToRad(state.angle/2));
-        soundCone.scale.set(r, r, state.distance);
+        
+        // 基础分频衰减及视觉非线性感知修正
+        const atten = getFilterAttenuation(s.simFreq, s.fc, s.filterType, s.slope);
+        const visualAtten = Math.pow(atten, 0.35); 
+
+        // 缩放修正：因为几何体高度方向在 Y 轴，所以 scale.y 对应传播距离，scale.xz 对应扩散半径
+        if (soundCone) {
+            soundCone.scale.set(r, state.distance, r);
+        }
+
+        // === V46 声学映射：将分频器物理衰减特性转换为 GPU 曲线指数 ===
+        let exponent = 2.0;
+        let colHex = isBareMode ? 0xaaaaaa : 0x00e5ff;
+        let slopeMult = s.slope / 24.0;
+
+        if (s.filterType === 'bessel') {
+            // Bessel: 阻带过渡极其宽广，呈现为最平缓、最大范围羽化的光束
+            exponent = 0.8 + 0.4 * slopeMult;
+        } else if (s.filterType === 'butterworth') {
+            // Butterworth: 标准过渡
+            exponent = 1.6 + 1.2 * slopeMult;
+        } else if (s.filterType === 'linkwitz-riley') {
+            // L-R: 阻带衰减极陡，声能高度凝聚在声轴，边缘暗区扩大
+            exponent = 2.8 + 2.2 * slopeMult;
+        }
+
+        if (soundCone && soundCone.material && soundCone.material.uniforms) {
+            soundCone.material.uniforms.uColor.value.setHex(colHex);
+            soundCone.material.uniforms.uAttenuation.value = visualAtten * 0.65; // 峰值曝光系数微调
+            soundCone.material.uniforms.uExponent.value = exponent;
+        }
+
         localRayDirs = generateFibonacciPoints(CONFIG.rayCount, state.angle);
         updateSimulation();
     }
@@ -1140,6 +1381,24 @@ _Enter`;
     function updateSimulation() {
         if(!environmentObjects.length) return;
 
+        // 动态同步3D模型的皮质/翻毛皮外观材质
+        if(carWrapper) {
+            carWrapper.traverse(c => {
+                if(c.isMesh && c.userData.acoustics) {
+                    const matType = c.userData.acoustics.materialType;
+                    if(matType === 'apillar') {
+                        c.material = getWrapperMaterial(s.apillarWrap);
+                    } else if(matType === 'dash') {
+                        c.material = getWrapperMaterial(s.dashMaterial);
+                    }
+                }
+            });
+        }
+
+        // 计算物理分频衰减系数
+        const atten = getFilterAttenuation(s.simFreq, s.fc, s.filterType, s.slope);
+        const visualAtten = Math.pow(atten, 0.35); 
+
         tweeterMesh.updateMatrixWorld();
         const origin = new THREE.Vector3(); tweeterMesh.getWorldPosition(origin);
         const quat = tweeterMesh.getWorldQuaternion(new THREE.Quaternion());
@@ -1167,8 +1426,8 @@ _Enter`;
         const linePos = laserLines.geometry.attributes.position.array;
         const lineCol = laserLines.geometry.attributes.color.array;
         
-        // Colors change based on mode
-        const colLine = isBareMode ? new THREE.Color(0xcccccc) : new THREE.Color(0x00aaff); 
+        const colLine = isBareMode ? new THREE.Color(0xcccccc) : new THREE.Color(0x00e5ff); 
+        const currentRayColor = colLine.clone().multiplyScalar(visualAtten); 
 
         let hitCount = 0;
         let maxRiskRatio = 0;
@@ -1190,7 +1449,17 @@ _Enter`;
                 const hit = hits[0];
                 const hitPt = hit.point;
                 const d1 = hit.distance;
-                const reflectivity = hit.object.userData.acoustics ? hit.object.userData.acoustics.reflectivity : 0.5;
+
+                const matType = hit.object.userData.acoustics ? hit.object.userData.acoustics.materialType : 'plastic';
+                let activeMaterialKey = 'plastic';
+                if (matType === 'glass') {
+                    activeMaterialKey = 'glass';
+                } else if (matType === 'apillar') {
+                    activeMaterialKey = s.apillarWrap;
+                } else if (matType === 'dash') {
+                    activeMaterialKey = s.dashMaterial;
+                }
+                const reflectivity = getReflectivity(activeMaterialKey, s.simFreq);
 
                 const I = dir.clone();
                 let N = hit.face.normal.clone().applyQuaternion(hit.object.getWorldQuaternion(new THREE.Quaternion())).normalize();
@@ -1204,7 +1473,7 @@ _Enter`;
                     const totalDist = d1 + d2;
                     const weight = Math.cos(calc.dist / CONFIG.listenerRadius * Math.PI / 2); 
                     
-                    const reflectedSpl = (1.0 / (totalDist * totalDist)) * offAxisFactor * reflectivity * weight;
+                    const reflectedSpl = (1.0 / (totalDist * totalDist)) * offAxisFactor * reflectivity * weight * atten;
                     const ratio = reflectedSpl / theoreticalDirectSpl;
 
                     if (ratio > maxRiskRatio) {
@@ -1214,12 +1483,15 @@ _Enter`;
 
                     if (ratio > 0.05) {
                         posArr[hitCount*3] = hitPt.x; posArr[hitCount*3+1] = hitPt.y; posArr[hitCount*3+2] = hitPt.z;
-                        const dotColor = getSeverityColor(ratio);
+                        
+                        const dotColor = getSeverityColor(ratio).multiplyScalar(visualAtten);
                         colArr[hitCount*3] = dotColor.r; colArr[hitCount*3+1] = dotColor.g; colArr[hitCount*3+2] = dotColor.b;
+                        
                         linePos[hitCount*6] = origin.x; linePos[hitCount*6+1] = origin.y; linePos[hitCount*6+2] = origin.z;
                         linePos[hitCount*6+3] = hitPt.x; linePos[hitCount*6+4] = hitPt.y; linePos[hitCount*6+5] = hitPt.z;
-                        lineCol[hitCount*6] = colLine.r; lineCol[hitCount*6+1] = colLine.g; lineCol[hitCount*6+2] = colLine.b;
-                        lineCol[hitCount*6+3] = colLine.r; lineCol[hitCount*6+4] = colLine.g; lineCol[hitCount*6+5] = colLine.b;
+                        
+                        lineCol[hitCount*6] = currentRayColor.r; lineCol[hitCount*6+1] = currentRayColor.g; lineCol[hitCount*6+2] = currentRayColor.b;
+                        lineCol[hitCount*6+3] = currentRayColor.r; lineCol[hitCount*6+4] = currentRayColor.g; lineCol[hitCount*6+5] = currentRayColor.b;
                         hitCount++;
                     }
                 }
@@ -1227,9 +1499,10 @@ _Enter`;
         }
 
         if(listenerZone) {
-            const targetColor = getSeverityColor(maxRiskRatio);
+            const effectiveRisk = maxRiskRatio * atten;
+            const targetColor = getSeverityColor(effectiveRisk);
             listenerZone.material.color.lerp(targetColor, 0.1);
-            listenerZone.material.opacity = THREE.MathUtils.lerp(listenerZone.material.opacity, 0.2 + maxRiskRatio * 1.5, 0.1);
+            listenerZone.material.opacity = THREE.MathUtils.lerp(listenerZone.material.opacity, 0.2 + effectiveRisk * 1.5, 0.1);
         }
 
         for(let k=hitCount*3; k<posArr.length; k++) posArr[k] = 0;
@@ -1241,10 +1514,10 @@ _Enter`;
         laserLines.geometry.attributes.position.needsUpdate = true;
         laserLines.geometry.attributes.color.needsUpdate = true;
 
-        updateDashboard(maxRiskRatio, worstPathDiff);
+        updateDashboard(maxRiskRatio, worstPathDiff, atten);
     }
 
-    function updateDashboard(maxRatio, pathDiff) {
+    function updateDashboard(maxRatio, pathDiff, atten) {
         const elLetter = document.getElementById('grade-letter');
         const elDesc = document.getElementById('grade-desc');
         const barDirect = document.getElementById('bar-direct');
@@ -1254,6 +1527,24 @@ _Enter`;
         const valFreq = document.getElementById('val-freq');
         const elAdvice = document.getElementById('advice-text');
 
+        const barAtten = document.getElementById('bar-atten');
+        const valAtten = document.getElementById('val-atten');
+        const attenDB = 20 * Math.log10(Math.max(0.001, atten));
+        if (barAtten && valAtten) {
+            valAtten.innerText = attenDB.toFixed(1) + " dB";
+            barAtten.style.width = (atten * 100) + "%";
+            if (attenDB < -12) {
+                barAtten.className = "metric-bar-fill bg-d";
+                valAtten.className = "metric-val color-d";
+            } else if (attenDB < -3) {
+                barAtten.className = "metric-bar-fill bg-c";
+                valAtten.className = "metric-val color-c";
+            } else {
+                barAtten.className = "metric-bar-fill bg-a";
+                valAtten.className = "metric-val color-a";
+            }
+        }
+
         if (directSoundOccluded) {
             barDirect.style.width = "40%"; barDirect.className = "metric-bar-fill bg-c"; 
             valDirect.innerText = "BLOCK"; valDirect.className = "metric-val color-c";
@@ -1262,12 +1553,13 @@ _Enter`;
             valDirect.innerText = "OK"; valDirect.className = "metric-val color-a";
         }
 
-        const p = Math.min(maxRatio * 100, 100).toFixed(1);
+        const effectiveRisk = maxRatio * atten;
+        const p = Math.min(effectiveRisk * 100, 100).toFixed(1);
         valRefl.innerText = p + "%";
-        barRefl.style.width = Math.min(maxRatio * 300, 100) + "%"; 
+        barRefl.style.width = Math.min(effectiveRisk * 300, 100) + "%"; 
         
         let freqStr = "--";
-        if (maxRatio > 0.05 && pathDiff > 0) {
+        if (effectiveRisk > 0.05 && pathDiff > 0) {
             const f = 343 / (2 * pathDiff);
             freqStr = (f > 20000) ? ">20k" : Math.round(f) + " Hz";
         }
@@ -1275,32 +1567,28 @@ _Enter`;
 
         let grade = 'A'; let desc = 'GOOD'; let gClass = 'color-a'; let advice = "";
         
-        if (maxRatio <= 0.08) {
-            grade = 'S'; desc = 'REFERENCE'; gClass = 'color-s'; barRefl.className = "metric-bar-fill bg-s"; advice = "✅ 完美声场：反射能量极低，结像清晰。";
-        } else if (maxRatio <= 0.18) {
-            grade = 'A'; desc = 'EXCELLENT'; gClass = 'color-a'; barRefl.className = "metric-bar-fill bg-a"; advice = "✨ 优秀表现：反射控制得当。";
-        } else if (maxRatio <= 0.30) {
-            grade = 'B'; desc = 'STANDARD'; gClass = 'color-b'; barRefl.className = "metric-bar-fill bg-b"; advice = "🆗 行业标准：存在常规反射。建议微调角度。";
+        if (effectiveRisk <= 0.08) {
+            grade = 'S'; desc = 'REFERENCE'; gClass = 'color-s'; barRefl.className = "metric-bar-fill bg-s"; advice = "✅ 完美声场：反射声波能量被滤除或有效吸收。";
+        } else if (effectiveRisk <= 0.18) {
+            grade = 'A'; desc = 'EXCELLENT'; gClass = 'color-a'; barRefl.className = "metric-bar-fill bg-a"; advice = "✨ 优秀表现：声波反射得到极好控制。";
+        } else if (effectiveRisk <= 0.30) {
+            grade = 'B'; desc = 'STANDARD'; gClass = 'color-b'; barRefl.className = "metric-bar-fill bg-b"; advice = "🆗 行业标准：声能二次反射尚可。建议调整分频或表面材质。";
         } else {
-            grade = 'C'; desc = 'RISK'; gClass = 'color-d'; barRefl.className = "metric-bar-fill bg-d"; advice = `⚠️ 反射过强：${freqStr} 处可能有严重干涉。`;
+            grade = 'C'; desc = 'RISK'; gClass = 'color-d'; barRefl.className = "metric-bar-fill bg-d"; advice = `⚠️ 反射过强：${freqStr} 处存在严重相位干涉音染风险，强烈建议包覆翻毛皮。`;
         }
 
         if(isBareMode) {
-             // Specific feedback for bare mode
-             advice = advice.replace("建议微调角度", "建议加装波导");
-             if(grade !== 'C' && grade !== 'B') advice += "<br>(注意：裸高音指向性随频率剧变，当前仅展示单一频率)";
+             advice = advice.replace("建议调整分频", "建议加装波导");
+             if(grade !== 'C' && grade !== 'B') advice += "<br>(注意：裸高音指向性随频率剧变，当前仅展示单一频点特性)";
         }
         
-        if (directSoundOccluded && grade !== 'C') advice = "⚠️ 注意：直达声被遮挡。";
+        if (directSoundOccluded && grade !== 'C') advice = "⚠️ 注意：直达声声轴已被严重遮挡！";
 
         elLetter.innerText = grade; elLetter.className = `grade-value ${gClass}`;
         elDesc.innerText = desc; elDesc.className = `grade-desc bg-${gClass.replace('color-', '')}`; elDesc.style.color = '#000';
-        // Only update advice text if we aren't in Bypass mode which overrides it, or merge them.
-        // Actually, let's keep the bypass override logic separate in updateUIFeedback if needed, 
-        // but here is the calculation result advice.
+        
         if(!isBareMode) elAdvice.innerHTML = advice;
         else {
-             // Keep the Bypass header, append grade info
              elAdvice.innerHTML = `<span style="color:#fff; font-weight:bold">对比模式：裸高音</span><br>${advice}`;
         }
     }
@@ -1315,5 +1603,4 @@ _Enter`;
     init();
 </script>
 </body>
-
 </html>
